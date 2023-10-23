@@ -1067,6 +1067,7 @@ dependencies = [
  "actix-web",
  "dotenv",
  "hyper",
+ "log",
  "serde",
  "tokio",
  "tracing-subscriber",
