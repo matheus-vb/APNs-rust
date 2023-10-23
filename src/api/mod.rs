@@ -1,6 +1,9 @@
-use actix_web::{web, HttpResponse, Responder, get};
+use std::sync::Arc;
+
+use a2::Client;
+use actix_web::{web::{self, Data}, HttpResponse, Responder, get};
 use serde::Serialize;
-use crate::apnservice::{send_notification, setup_client};
+use crate::apnservice::send_notification;
 
 #[derive(Serialize)]
 struct ApiResponse {
@@ -8,13 +11,11 @@ struct ApiResponse {
 }
 
 #[get("/trigger/{device_token}")]
-pub async fn trigger(device_token: web::Path<String>) -> impl Responder {
-    let client = match setup_client() {
-        Ok(client) => client,
-        Err(err) => return HttpResponse::InternalServerError().body(err.to_string())
-    };
-
-    match send_notification(&client, device_token.as_str()).await {
+pub async fn trigger(
+    client: Data<Arc<Client>>,
+    device_token: web::Path<String>
+) -> impl Responder {
+    match send_notification(client.get_ref(), device_token.as_str()).await {
         Ok(_) => HttpResponse::Ok().json(ApiResponse { data: "Notification sent.".to_string() }),
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
     }
