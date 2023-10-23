@@ -1,31 +1,38 @@
 use std::fs::File;
 use std::env;
 use a2::{Client, DefaultNotificationBuilder, Endpoint, NotificationBuilder, NotificationOptions};
+use log::{error, info};
 
 pub async fn send_notification(device_token: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    const key_file: &'static str  = "auth-key.p8";
-    let mut team_id = String::new();
-    let mut key_id = String::new();
-    let mut message = String::from("Message from Rust!");
-    let mut topic: Option<String> = None;
+    const KEY_FILE: &str = "auth-key.p8"; // path to .p8 key file
 
-    key_id = env::var("KEY_ID").expect("KEY_ID must be set");
-    team_id = env::var("TEAM_ID").expect("TEAM_ID must be set");
-    let rawTopic = env::var("BUNDLE_ID").expect("BUNDLE_ID must be set");
+    let key_id = env::var("KEY_ID").expect("KEY_ID must be set");
+    let team_id = env::var("TEAM_ID").expect("TEAM_ID must be set");
+    let topic = Some(env::var("BUNDLE_ID").expect("BUNDLE_ID must be set"));
 
-    topic = Some(rawTopic.to_string());
+    let message = "Message from Rust!"; // Notification message
+    let endpoint = Endpoint::Sandbox; // APNs environment 
 
-    // Read the private key from disk
-    let mut private_key = File::open(key_file).unwrap();
+    let private_key = match File::open(KEY_FILE) {
+        Ok(file) => file,
+        Err(e) => {
+            error!("Failed to open key file: {}", e);
+            return Err(e.into());
+        }
+    };
 
-    println!("Key file: {:?}", private_key);
-    println!("Key id: {:?}", key_id);
-    println!("Topic: {:?}", topic);
-    println!("Team id: {:?}", team_id);
+    info!("Key file: {:?}", private_key);
+    info!("Key id: {}", key_id);
+    info!("Topic: {:?}", topic);
+    info!("Team id: {}", team_id);
 
-    let endpoint = Endpoint::Sandbox;
-
-    let client = Client::token(&mut private_key, key_id, team_id, endpoint).unwrap();
+    let client = match Client::token(private_key, key_id, team_id, endpoint) {
+        Ok(client) => client,
+        Err(e) => {
+            error!("Failed to create client: {}", e);
+            return Err(e.into());
+        }
+    };
     
     let options = NotificationOptions {
         apns_topic: topic.as_deref(),
@@ -39,9 +46,15 @@ pub async fn send_notification(device_token: &str) -> Result<(), Box<dyn std::er
         .set_badge(1u32);
 
     let payload = builder.build(device_token.as_ref(), options);
-    let response = client.send(payload).await?;
     
-    println!("Sent: {:?}", response);
-
-    Ok(())
+    match client.send(payload).await {
+        Ok(response) => {
+            info!("Sent: {:?}", response);
+            Ok(())
+        }
+        Err(e) => {
+            error!("Failed to send notification: {}", e);
+            Err(e.into())
+        }
+    }
 }
