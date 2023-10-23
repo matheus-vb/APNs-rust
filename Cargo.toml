@@ -9,5 +9,7 @@ edition = "2021"
 actix-web = "4.0"
 serde = { version = "1.0", features = ["derive"] }
 dotenv = "0.15.0"
-tokio = "1.33.0"
+tokio = { version = "1.33.0", features = ["full"] }
 a2 = "0.8.0"
+tracing-subscriber = "0.3"
+hyper = { version = "0.14", features = ["client", "http2", "tcp"] }
